@@ -1,126 +1,71 @@
-from Stepper import Stepper_Motor 
+from cube_5x5x5_stepper import Stepper_Motor
 from BOTS import *
 from machine import I2C, UART
 import time
 
 cube_pos = ["U", "L", "F", "R", "B", "D"]
 
-bottom_stepper = Stepper_Motor(12, 13)
-top_stepper = Stepper_Motor(25, 14)
-linear_stepper = Stepper_Motor(32, 33)
+top_gripper_state = 0
+bottom_gripper_state = 0
 
+stepper = Stepper_Motor(32, 33, 12, 13, 25, 14)
 
-linear_positions = (-360, -135, 135, 360)   
+linear_positions = (-360, -135, 135, 360)    
 
-max_speed = 1500
-max_free = 800 
-start_speed = 5000
-linear_start_speed = 2000
+max_speed = 1050
+max_cube_rotate = 870  
+max_free = 600 
+start_speed = 6000
+linear_start_speed = 3000
 max_linear = 400
 
-over_shoot = 20
+over_shoot = 8
+
+wait_gap = 0.3
+
+rot_face = False
 
 
-uart = UART(1, tx=15, rx=2, baudrate=115200)
+uart = UART(1, tx=15, rx=2, baudrate=115200) 
 
 
 I2C_bus = I2C(0, sda=27, scl=26)
 
 cube_servo = Servo (I2C_bus) 
 
-b_close = 0.96 #0.96
-top_r_close = 0.8
-top_l_close = 0.72
+b_servo = (0.4, 0.7, 0.97) 
+l_servo = (0.4, 0.57, 0.70)
+r_servo = (0.16, 0.65, 0.77) 
+cube_servo.set_servo (0.91, 5)
+cube_servo.set_servo (l_servo[0], 6)
+cube_servo.set_servo (r_servo[0], 7)
 
-#cube_servo.set_servo (b_close, 5)
-cube_servo.set_servo (0.9, 5)
-cube_servo.set_servo (0.3, 6)
-cube_servo.set_servo (0.3, 7)
-
-
-
-def top_l (pos):
-  if pos == 0: cube_servo.set_servo (0.3, 6)
-  else : cube_servo.set_servo (top_l_close, 6) 
-  #time.sleep(0.4)
-  
-def top_r (pos):
-  if pos == 0: 
-	cube_servo.set_servo (0.3, 7)
-	time.sleep(0.1)
-  elif pos == 1 : 
-	cube_servo.set_servo (top_r_close, 7)
-	time.sleep(0.3)
-  else : 
-	cube_servo.set_servo (0.69, 7)
-	time.sleep(0.05)
-
-def top_both(pos):
-  if pos == 1:
-	cube_servo.set_servo (top_l_close, 6)
-	cube_servo.set_servo (top_r_close, 7)
-	time.sleep(0.3)
-  elif pos == 0:
-	cube_servo.set_servo (0.3, 6)
-	cube_servo.set_servo (0.3, 7)
-	time.sleep(0.1)
-  elif pos == 2:
-	cube_servo.set_servo (top_l_close, 6)
-	cube_servo.set_servo (top_r_close, 7)
-	time.sleep(0.1)	
-  else:
-	cube_servo.set_servo (0.6, 6)
-	cube_servo.set_servo (0.65, 7)
-	time.sleep(0.05)
-	
-  
-
-def bottom(pos):
-  if pos==1: 
-	cube_servo.set_servo (b_close, 5)
-	time.sleep(0.3)
-  else: 
-	cube_servo.set_servo (0.5, 5)
-	time.sleep(0.1)
+#stepper.move_position(2, 200,5000, 2000) 
 
 
-  
-def rotate_cube_t(rotation):
+def rot_cube_t_pos(rotation):  
   global cube_pos
-  linear_stepper.move_position(linear_positions[1], linear_start_speed, max_linear)
-  top_r(1)
-  bottom(0)
-  top_stepper.move_position(rotation*200, start_speed, max_speed)
-  bottom(1)
-  top_r(2)
-  linear_stepper.move_position(linear_positions[3], linear_start_speed, max_linear)
-  top_r(0)
-  top_stepper.move_position(0, start_speed, max_free)
   temp = cube_pos[0]
   if rotation == 1:
 	cube_pos[0] = cube_pos[2]
 	cube_pos[2] = cube_pos[5]
 	cube_pos[5] = cube_pos[4]
 	cube_pos[4] = temp
-  if rotation == -1:
-	cube_pos[0] = cube_pos[4]
+  elif rotation == -1:
+	cube_pos[0] = cube_pos[4] 
 	cube_pos[4] = cube_pos[5]
 	cube_pos[5] = cube_pos[2]
 	cube_pos[2] = temp
+  else:
+	cube_pos[0] =  cube_pos[5]
+	cube_pos[5] = temp
+	temp = cube_pos[2]
+	cube_pos[2] = cube_pos[4]
+	cube_pos[4] = temp
+
 	
-  
-  
-def rotate_cube_b (rotation):
+def rot_cube_b_pos(rotation):
   global cube_pos
-  global short
-  linear_stepper.move_position(0,linear_start_speed, max_linear)
-  bottom_stepper.move_position (rotation*200, start_speed, max_free)
-  top_both(1)
-  bottom(0)
-  bottom_stepper.move_position (0,start_speed, max_free)
-  bottom(1)
-  top_both(3)
-  short = True
   temp = cube_pos[2]
   if rotation == 1:
 	cube_pos[2] = cube_pos[3]
@@ -132,15 +77,7 @@ def rotate_cube_b (rotation):
 	cube_pos[1] = cube_pos[4]
 	cube_pos[4] = cube_pos[3]
 	cube_pos[3] = temp
-  elif rotation == 2:
-	cube_pos[2] = cube_pos[4] 
-	cube_pos[4] = temp
-	temp = cube_pos[1]
-	cube_pos[1] = cube_pos[3]
-	cube_pos[3] = temp
-  
-
-    
+	
 
 while uart.any() == 0: time.sleep(0.1)
 time.sleep(0.5)
@@ -150,90 +87,194 @@ data = uart.read(num_data).decode("ascii")
 
 print (data)
 
+total_moves = 0
+
+for loop in range(len(data)): 
+	if data[loop] == " ": total_moves += 1
+
+print("total_moves = ", total_moves)
+
+solution = [["E", 1, 1, 1]]
+
+for loop in range(total_moves): solution.append(["E", 1, 1, 1])
+
+move_number = 0
 string_pos = 0
 
-cube_servo.set_servo (b_close, 5)
-
-short = False
-
-
 while string_pos < num_data:
-	face = data[string_pos]
+	solution[move_number][0] = data[string_pos]
 	string_pos += 1
 	if data[string_pos] == "w":
-		w = 1
+		solution[move_number][1] = 1
 		string_pos += 1
-	else: w = 0
+	else: solution[move_number][1] = 0
 	if data[string_pos] == "2":
-		turns = 2
+		solution[move_number][2] = 2
 		string_pos +=1
-	else: turns = 1
+	else: solution[move_number][2] = 1
 	if data[string_pos] == "'":
-		invert = -1
+		solution[move_number][3] = -1
 		string_pos += 1
-	else: invert = 1
-	string_pos +=1
+	else: solution[move_number][3] = 1
+	string_pos +=1 
+	move_number +=1
 	
 	
-	print ( face, w, turns, invert)
+cube_servo.set_servo (b_servo[2], 5)
+
+#setup first move if on face 3 or 1
+if solution[0][0] == cube_pos[3] or solution[0][0] == cube_pos[1]:
+	if solution[0][0] == cube_pos[3]: 
+		stepper.move_position(0, linear_positions[3 - solution[0][1]] , linear_start_speed, max_linear)
+		rot_face = False
+	else: 
+		stepper.move_position(0, linear_positions[solution[0][1]] , linear_start_speed, max_linear)
+		rot_face = True
+	#close both top
+	cube_servo.set_servo (l_servo[2], 6)
+	cube_servo.set_servo (r_servo[2], 7)
+	time.sleep(0.3)
+	#open b gripper
+	cube_servo.set_servo (b_servo[0], 5)
+	time.sleep(0.1)
+
+
+for moves in range(move_number):
+	print()
+	print(solution[moves])
 	
-	if face == cube_pos[0] or face == cube_pos[5]: rotate_cube_t(1)
-	if face == cube_pos[2]: rotate_cube_b(-1)
-	if face == cube_pos[4]: rotate_cube_b(1)
-	#if face == cube_pos[1]: rotate_cube_b(2)
+	if solution[moves][0] == cube_pos[0] or solution[moves][0] == cube_pos[5]:
+		print("posiotion 0 or 5")
+		#move to linear postion for rotation
+		stepper.move_position(0, linear_positions[1], linear_start_speed, max_linear)  
+		#open left griper and close r gripper
+		cube_servo.set_servo (l_servo[0], 6)
+		cube_servo.set_servo (r_servo[2], 7)
+		time.sleep(wait_gap)
+		#open bottom gripper
+		cube_servo.set_servo (b_servo[0], 5)
+		time.sleep(0.1)		
 	
-	if face == cube_pos[3]:
-		linear_stepper.move_position(linear_positions[3-w], linear_start_speed, max_linear)
-		if short: 
-			top_both(2)
-			short = False
-		else: top_both(1)
-		bottom(0)
-		top_stepper.move_position(turns*200*invert, start_speed, max_speed, overshoot=over_shoot)		
-		bottom(1)
-		top_l(0)
-		top_r(2)
-		linear_stepper.move_position(linear_positions[3], linear_start_speed, max_linear)
-		top_r(0)
-		top_stepper.move_position(0, start_speed, max_free)
-	elif face == cube_pos[1]:
-		linear_stepper.move_position(linear_positions[w], linear_start_speed, max_linear)
-		if short: 
-			top_both(2)
-			short = False
-		else: top_both(1)
-		bottom(0)
-		top_stepper.move_position(turns*200*invert, start_speed, max_speed, overshoot=over_shoot)
-		temp = cube_pos[0]
-		if turns == 1 and invert == 1:
-			cube_pos[0] = cube_pos[2]
-			cube_pos[2] = cube_pos[5]
-			cube_pos[5] = cube_pos[4]
-			cube_pos[4] = temp
-		if turns == 1 and invert == -1:
-			cube_pos[0] = cube_pos[4]
-			cube_pos[4] = cube_pos[5]
-			cube_pos[5] = cube_pos[2]
-			cube_pos[2] = temp
-		if turns == 2:
-			cube_pos[0] = cube_pos[5]
-			cube_pos[5] = temp
-			temp = cube_pos[2]
-			cube_pos[2] = cube_pos[4]
-			cube_pos[4] = temp
+		if top_gripper_state < 1: 
+			#rotate top gripper/cube
+			stepper.move_position(2, stepper.read_position()[2] + 200, start_speed, max_cube_rotate) 
+			rot_cube_t_pos(1)
+			top_gripper_state += 1			
+			#close bottom gripper
+			cube_servo.set_servo (b_servo[2], 5)
+			time.sleep(0.3)
+			#part open right gripper
+			cube_servo.set_servo (r_servo[1], 7)
+			time.sleep(0.1)
+			wait_gap = 0.1
+		else: 
+			#rotate top gripper/cube
+			stepper.move_position(2, stepper.read_position()[2] - 200, start_speed, max_cube_rotate)
+			rot_cube_t_pos(-1)
+			top_gripper_state -= 1			
+			#close bottom gripper
+			cube_servo.set_servo (b_servo[2], 5)
+			time.sleep(0.3)
+			#part open right gripper
+			cube_servo.set_servo (r_servo[1], 7)
+			time.sleep(0.1)
+			wait_gap = 0.1
+		stepper.move_position(0, 200, linear_start_speed, max_linear)
+		#open r gripper all the way now 
+		cube_servo.set_servo (r_servo[0], 7)
 		
-		bottom(1)
-		top_l(0)
-		top_r(2)
-		linear_stepper.move_position(linear_positions[3], linear_start_speed, max_linear)
-		top_r(0)
-		top_stepper.move_position(0, start_speed, max_free)
+			
+	if solution[moves][0] == cube_pos[2] or solution[moves][0] == cube_pos[4]: 
+		print ("position 2 or 4")
+		if solution[moves][0] == cube_pos[2]: spin_dir = -1
+		else: spin_dir = 1
+		#move linear to spin
+		stepper.move_position(0, 200, linear_start_speed, max_linear)
+		#open both top
+		cube_servo.set_servo (l_servo[0], 6)
+		cube_servo.set_servo (r_servo[0], 7)
+		time.sleep(0.1)
+		#rotate bottom and side if needed
+		if top_gripper_state == -1:	stepper.move_2_motor_90(spin_dir, 1, start_speed, max_free)
+		elif top_gripper_state == 1: stepper.move_2_motor_90(spin_dir, -1, start_speed, max_free)
+		else: stepper.move_position(1, 200 * spin_dir, start_speed, max_free)		
+		#return top_gripper_state to zero
+		stepper.move_position(2, 0, start_speed, max_free)								
+		top_gripper_state = 0
+		rot_cube_b_pos(spin_dir)		
+		
+		#move to next linear possition for next face		
+		if solution[moves][0] == cube_pos[3]: 
+			stepper.move_position(0, linear_positions[3 - solution[moves][1]] , linear_start_speed, max_linear)
+			rot_face = False
+		else: 
+			stepper.move_position(0, linear_positions[solution[moves][1]] , linear_start_speed, max_linear)
+			rot_face = True
+			
+		
+		#close both top
+		cube_servo.set_servo (l_servo[2], 6)
+		cube_servo.set_servo (r_servo[2], 7)
+		time.sleep(0.3)
+		#open b half way
+		cube_servo.set_servo (b_servo[1], 5)
+		time.sleep(0.1)
+		#rotate bottom back to zero
+		stepper.move_position(1, 0, start_speed, max_free)
+		#open b gripper
+		cube_servo.set_servo (b_servo[0], 5)
 
 		
-linear_stepper.move_position(0,linear_start_speed, 800)
+			
+	if solution[moves][0] == cube_pos[3] or solution[moves][0] == cube_pos[1]:
+		#test for double turn
+		if solution[moves][2] == 2:
+			if top_gripper_state == 0: turn_dir = (solution[moves + 1][3] * -1)
+			elif top_gripper_state < 0: turn_dir = 1 
+			else: turn_dir = -1
+			stepper.move_position(2, stepper.read_position()[2] + (400*turn_dir), start_speed, max_speed, overshoot=over_shoot)
+			top_gripper_state += (2*turn_dir)
+			if rot_face: rot_cube_t_pos(2)
+		else: 
+			stepper.move_position(2, stepper.read_position()[2] + (200*solution[moves][3]), start_speed, max_speed, overshoot=over_shoot)
+			top_gripper_state += solution[moves][3]
+			if rot_face: rot_cube_t_pos(solution[moves][3])
+		#close b gripper
+		cube_servo.set_servo (b_servo[2], 5)
+		time.sleep(0.3)
+		#part open top
+		cube_servo.set_servo (l_servo[1], 6)
+		cube_servo.set_servo (r_servo[1], 7)
+		time.sleep(0.1)
+		wait_gap = 0.1
+
+	if solution[moves + 1][0] == cube_pos[3] or solution[moves + 1][0] == cube_pos[1]:
+		if solution[moves + 1][0] == cube_pos[3]: 
+			stepper.move_position(0, linear_positions[3 - solution[moves + 1][1]] , linear_start_speed, max_linear)
+			rot_face = False
+		else: 
+			stepper.move_position(0, linear_positions[solution[moves + 1][1]] , linear_start_speed, max_linear)
+			rot_face = True
+		#close both top
+		cube_servo.set_servo (l_servo[2], 6)
+		cube_servo.set_servo (r_servo[2], 7)
+		time.sleep(0.3)
+		#open b gripper
+		cube_servo.set_servo (b_servo[0], 5)
+		time.sleep(0.1)
+
+stepper.move_position(0, 200,linear_start_speed, max_linear)
+#open both top
+cube_servo.set_servo (l_servo[0], 6)
+cube_servo.set_servo (r_servo[0], 7)
+time.sleep(0.1)
+#zero top gripper
+stepper.move_position(2, 0,start_speed, max_speed)
+#zero linear		
+stepper.move_position(0, 0,linear_start_speed, max_linear)
+
 I2C_bus.deinit()
-del bottom_stepper
-del top_stepper
-del linear_stepper
+del stepper
+
 
 
