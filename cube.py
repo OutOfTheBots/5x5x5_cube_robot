@@ -7,14 +7,15 @@ cube_pos = ["U", "L", "F", "R", "B", "D"]
 
 top_gripper_state = 0
 bottom_gripper_state = 0
+bottom_gripper_state = 0
 
 stepper = Stepper_Motor(32, 33, 12, 13, 25, 14)
 
 linear_positions = (-360, -135, 135, 360)    
 
-max_speed = 1050
-max_cube_rotate = 870  
-max_free = 600 
+max_speed = 750 
+max_cube_rotate = 450  
+max_free = 450 
 start_speed = 6000
 linear_start_speed = 3000
 max_linear = 400
@@ -34,7 +35,7 @@ I2C_bus = I2C(0, sda=27, scl=26)
 cube_servo = Servo (I2C_bus) 
 
 b_servo = (0.4, 0.7, 0.97) 
-l_servo = (0.4, 0.57, 0.70)
+l_servo = (0.4, 0.57, 0.76) 
 r_servo = (0.16, 0.65, 0.77) 
 cube_servo.set_servo (0.91, 5)
 cube_servo.set_servo (l_servo[0], 6)
@@ -201,6 +202,7 @@ for moves in range(move_number):
 		#return top_gripper_state to zero
 		stepper.move_position(2, 0, start_speed, max_free)								
 		top_gripper_state = 0
+		bottom_gripper_state = spin_dir
 		rot_cube_b_pos(spin_dir)		
 		
 		#move to next linear possition for next face		
@@ -216,6 +218,8 @@ for moves in range(move_number):
 		cube_servo.set_servo (l_servo[2], 6)
 		cube_servo.set_servo (r_servo[2], 7)
 		time.sleep(0.3)
+		
+		'''
 		#open b half way
 		cube_servo.set_servo (b_servo[1], 5)
 		time.sleep(0.1)
@@ -223,30 +227,60 @@ for moves in range(move_number):
 		stepper.move_position(1, 0, start_speed, max_free)
 		#open b gripper
 		cube_servo.set_servo (b_servo[0], 5)
+		'''
+		#open b 
+		cube_servo.set_servo (b_servo[0], 5)
+		time.sleep(0.2)
+		
 
 		
 			
 	if solution[moves][0] == cube_pos[3] or solution[moves][0] == cube_pos[1]:
-		#test for double turn
-		if solution[moves][2] == 2:
-			if top_gripper_state == 0: turn_dir = (solution[moves + 1][3] * -1)
-			elif top_gripper_state < 0: turn_dir = 1 
-			else: turn_dir = -1
-			stepper.move_position(2, stepper.read_position()[2] + (400*turn_dir), start_speed, max_speed, overshoot=over_shoot)
-			top_gripper_state += (2*turn_dir)
-			if rot_face: rot_cube_t_pos(2)
-		else: 
-			stepper.move_position(2, stepper.read_position()[2] + (200*solution[moves][3]), start_speed, max_speed, overshoot=over_shoot)
-			top_gripper_state += solution[moves][3]
-			if rot_face: rot_cube_t_pos(solution[moves][3])
-		#close b gripper
-		cube_servo.set_servo (b_servo[2], 5)
-		time.sleep(0.3)
-		#part open top
-		cube_servo.set_servo (l_servo[1], 6)
-		cube_servo.set_servo (r_servo[1], 7)
-		time.sleep(0.1)
-		wait_gap = 0.1
+		
+		if bottom_gripper_state == 0:		
+			#test for double turn
+			if solution[moves][2] == 2:
+				if top_gripper_state == 0: turn_dir = (solution[moves + 1][3] * -1)
+				elif top_gripper_state < 0: turn_dir = 1 
+				else: turn_dir = -1
+				stepper.move_position(2, stepper.read_position()[2] + (400*turn_dir), start_speed, max_speed, overshoot=over_shoot)
+				top_gripper_state += (2*turn_dir)
+				if rot_face: rot_cube_t_pos(2)
+			else: 
+				stepper.move_position(2, stepper.read_position()[2] + (200*solution[moves][3]), start_speed, max_speed, overshoot=over_shoot)
+				top_gripper_state += solution[moves][3]
+				if rot_face: rot_cube_t_pos(solution[moves][3])
+			#close b gripper
+			cube_servo.set_servo (b_servo[2], 5)
+			time.sleep(0.3)
+			#part open top
+			cube_servo.set_servo (l_servo[1], 6)
+			cube_servo.set_servo (r_servo[1], 7)
+			time.sleep(0.1)
+			wait_gap = 0.1
+		else:
+			#test for double turn
+			if solution[moves][2] == 2:
+				if top_gripper_state == 0: turn_dir = (solution[moves + 1][3] * -1)
+				elif top_gripper_state < 0: turn_dir = 1 
+				else: turn_dir = -1				
+				stepper.move_2_motor_90(bottom_gripper_state*-1, turn_dir, start_speed, max_free)				
+				stepper.move_position(2, stepper.read_position()[2] + (200*turn_dir), start_speed, max_speed, overshoot=over_shoot)
+				top_gripper_state += (2*turn_dir)
+				if rot_face: rot_cube_t_pos(2)
+			else: 
+				stepper.move_2_motor_90(bottom_gripper_state*-1, (200*solution[moves][3]), start_speed, max_free, overshoot=over_shoot)   
+				top_gripper_state += solution[moves][3]
+				if rot_face: rot_cube_t_pos(solution[moves][3])
+			bottom_gripper_state = 0
+			#close b gripper
+			cube_servo.set_servo (b_servo[2], 5)
+			time.sleep(0.3)
+			#part open top
+			cube_servo.set_servo (l_servo[1], 6)
+			cube_servo.set_servo (r_servo[1], 7)
+			time.sleep(0.1)
+			wait_gap = 0.1			
 
 	if solution[moves + 1][0] == cube_pos[3] or solution[moves + 1][0] == cube_pos[1]:
 		if solution[moves + 1][0] == cube_pos[3]: 
